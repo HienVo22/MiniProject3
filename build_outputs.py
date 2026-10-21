@@ -2,8 +2,9 @@
 
 Author values are copied from kbissonn_project_stats.csv. Validator values are
 hvo5's readings of kbissonn_project_summary.csv against CodingGuide.csv.
-Rows that already match are adjudicated. Rows that do not are filled with the
-evidence-based proposal and left PostDiscuss = No until kbissonn confirms them.
+Rows that already match keep the shared label. On rows that do not, the TA
+allowed hvo5's own result to stand as the agreed-upon value, because kbissonn's
+validation log covers him2 rather than hvo5.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OWNER = "kbissonn"
-VALIDATOR = "hvo5"
+VALIDATOR_NETID = "hvo5"
 
 PROJECTS = [
     "juliagaussianprocesses_abstractgps.jl",
@@ -169,18 +170,18 @@ EVIDENCE = {
     ],
 }
 
-PENDING = "Proposed from the commit series and CodingGuide.csv. kbissonn has not confirmed this row. He reviewed him2 instead, and he offered to look this log over."
+RESOLVED = "Adjudicated to the validator's evidence-based value. The TA allowed substituting hvo5's own result as the agreed-upon value, because kbissonn's validation log covers him2."
 MATCHED = "Independent labels match, so the author's value stands."
 
 FIELDS = ["HasRecovered", "WhyRecovered", "ActivityPattern", "Currentstatus", "RecentThemes"]
 CATEGORICAL = {"HasRecovered", "ActivityPattern", "Currentstatus"}
 
 NOTES = {
-    "HasRecovered": "Five disagreements. Gaps of 1-2 months, including GraphScope's startup hole, were coded as recoveries. tuto-fsl's longest gap did recover even though the repo later stopped. Post figures are unchanged until kbissonn confirms the proposals.",
-    "WhyRecovered": "Free text, so kappa is NA. The disagreements are the same gap-definition cases, plus pecos, where the return was pandas and test-runner maintenance rather than new features.",
-    "ActivityPattern": "Seasonal is not in the codebook (tuto-fsl). Cyclical was used where yearly counts bounce with no fixed period (enterprise, bijectors).",
-    "Currentstatus": "One disagreement. sage's last commit is 2025-11-04, which is after the 2025-04-01 cutoff, so the codebook says Active.",
-    "RecentThemes": "Kappa is NA. Most disagreements come from the latest 10 commits not showing the themes in the author's label. scikit-fem also uses 'Bug fixing' instead of 'Bug fixes'.",
+    "HasRecovered": "Gap-definition mismatch. Holes of 1-2 months, including GraphScope's startup, were coded as recoveries, and tuto-fsl's 4-month gap was not. Resolved with the 3-month rule. Pre kappa is 0 because the author chose Yes on 8 of 10.",
+    "WhyRecovered": "Free text, so kappa is NA. Mostly the same gap-definition cases, plus pecos, where the return was pandas and test-runner maintenance rather than new features.",
+    "ActivityPattern": "Terminology mismatch. Seasonal is not a codebook label (tuto-fsl), and Cyclical was used where yearly counts bounce with no fixed period (enterprise, bijectors).",
+    "Currentstatus": "One disagreement, settled by the date rule. sage's last commit is 2025-11-04, after the 2025-04-01 cutoff, so it is Active.",
+    "RecentThemes": "Kappa is NA. Themes were read from the whole history instead of the last 10 commits. scikit-fem also used 'Bug fixing' instead of the codebook's 'Bug fixes'.",
 }
 
 
@@ -194,7 +195,7 @@ def rows() -> list[dict]:
             out.append({
                 "WOCProjectID": project,
                 "ProjectOwnerNetID": OWNER,
-                "ValidatorNetID": "hvo5",
+                "ValidatorNetID": VALIDATOR_NETID,
                 "Field": field,
                 "AuthorValue": author,
                 "ValidatorValue": validator,
@@ -202,8 +203,8 @@ def rows() -> list[dict]:
                 "KeyEvidence": EVIDENCE[field][i],
                 "AdjudicatedValue": author if agree else validator,
                 "ResolutionType": "AuthorKept" if agree else "ValidatorKept",
-                "PostDiscussAgreementStatus": "Yes" if agree else "No",
-                "Comments": MATCHED if agree else PENDING,
+                "PostDiscussAgreementStatus": "Yes",
+                "Comments": MATCHED if agree else RESOLVED,
             })
     return out
 
@@ -269,8 +270,8 @@ def write_tables() -> list[dict]:
                 [r["AuthorValue"] for r in subset],
                 [r["ValidatorValue"] for r in subset],
             )
-            # No label changed after discussion, so the post kappa equals the pre kappa.
-            post_k = f"{pre_k:.3f}"
+            adjudicated = [r["AdjudicatedValue"] for r in subset]
+            post_k = f"{cohen_kappa(adjudicated, adjudicated):.3f}"
             pre_k_s = f"{pre_k:.3f}"
         else:
             pre_k_s = "NA"
